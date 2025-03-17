@@ -72,18 +72,72 @@
     <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore-compat.js"></script>
     
     <script>
-        // Your Firebase config
-        const firebaseConfig = {
-          apiKey: "AlzaSyCSw​TYVk-4fk7ENVHp4wyZ9AaL4dKHfwQc",
-          authDomain: "zenkai-share.firebaseapp.com",
-          projectId: "zenkai-share",
-          storageBucket: "zenkai-share.appspot.com",
-          messagingSenderId: "142738616429",
-          appId: "1:142738616429:web:2c84c2d631ff1b9e884f64"
-        };
-        
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
+       // Import Firebase modules (modern SDK)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.19.1/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.19.1/firebase-auth.js";
+import { getFirestore, setDoc, doc } from "https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore.js";
+
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCSwTYVk-4fk7ENVHp4wz9AaLd4KHfwQc",
+  authDomain: "zenkai-share.firebaseapp.com",
+  projectId: "zenkai-share",
+  storageBucket: "zenkai-share.appspot.com",
+  messagingSenderId: "142738616429",
+  appId: "1:142738616429:web:2c84c2d631ff1b9e884f64"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Register user function
+document.getElementById('register-btn').addEventListener("click", async function() {
+    const username = document.getElementById("register-username").value;
+    const email = document.getElementById("register-email").value;
+    const password = document.getElementById("register-password").value;
+
+    if (!username || !email || !password) {
+        alert("Please fill in all fields");
+        return;
+    }
+
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Add user info to Firestore
+        await setDoc(doc(db, "users", user.uid), {
+            username: username,
+            email: email,
+            createdAt: new Date().getTime()
+        });
+
+        alert("Registration successful!");
+    } catch (error) {
+        alert("Registration error: " + error.message);
+    }
+});
+
+// Login user function
+document.getElementById('login-btn').addEventListener("click", async function() {
+    const email = document.getElementById("login-email").value;
+    const password = document.getElementById("login-password").value;
+
+    if (!email || !password) {
+        alert("Please enter email and password");
+        return;
+    }
+
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        alert("Login successful!");
+    } catch (error) {
+        alert("Login error: " + error.message);
+    }
+});
+
         
         // DOM elements
         const loginForm = document.getElementById('login-form');
