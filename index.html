@@ -74,16 +74,16 @@
     <script>
         // Your Firebase config
         const firebaseConfig = {
-            apiKey: "AlzaSyCSw​TYVk-4fk7ENVHp4wyZ9AaL4dKHfwQc",
-            authDomain: "zenkai-share.firebaseapp.com",
-            projectId: "zenkai-share",
-            storageBucket: "zenkai-share.firebasestorage.app",
-            messagingSenderId: "142738616429",
-            appId: "1:142738616429:web:2c84c2d631ff1b9e884f64"
+          apiKey: "AlzaSyCSw​TYVk-4fk7ENVHp4wyZ9AaL4dKHfwQc",
+          authDomain: "zenkai-share.firebaseapp.com",
+          projectId: "zenkai-share",
+          storageBucket: "zenkai-share.firebasestorage.app",
+          messagingSenderId: "142738616429",
+          appId: "1:142738616429:web:2c84c2d631ff1b9e884f64"
         };
         
         // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
+        const app = initializeApp(firebaseConfig);
         
         // DOM elements
         const loginForm = document.getElementById('login-form');
