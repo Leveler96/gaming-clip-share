@@ -66,6 +66,33 @@
         </div>
     </div>
 
+    <!-- Main App (hidden until logged in) -->
+<div id="app-container" style="display: none; width: 100%; height: 100vh;">
+  <header style="background-color: #2a3f5a; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center;">
+    <h1 style="color: #66c0f4; font-size: 24px;">Clip Share</h1>
+    <div style="display: flex; gap: 20px; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span id="user-name" style="color: #c7d5e0;"></span>
+        <button id="logout-btn" style="background: none; border: none; color: #8f98a0; cursor: pointer; text-decoration: underline;">Log Out</button>
+      </div>
+      <button id="upload-btn" style="background-color: #66c0f4; color: #1b2838; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer;">Upload Clip</button>
+    </div>
+  </header>
+  
+  <main style="background-color: #1b2838; color: #c7d5e0; height: calc(100% - 60px); padding: 20px; overflow-y: auto;">
+    <div id="clip-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+      <div id="empty-state" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px; color: #8f98a0;">
+        <div style="font-size: 48px; margin-bottom: 20px;">📹</div>
+        <div style="font-size: 18px; margin-bottom: 20px;">No clips yet</div>
+        <button id="empty-upload-btn" style="background-color: #66c0f4; color: #1b2838; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer;">Upload Your First Clip</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+    <!-- Cloudinary Upload Widget -->
+<script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
+
     <!-- Firebase SDK -->
    <script type="module">
        // Import Firebase modules (modern SDK)
@@ -206,6 +233,237 @@ document.getElementById('login-btn').addEventListener("click", async function() 
                     alert('Login error: ' + error.message);
                 });
         }
+
+       // Auth state listener
+auth.onAuthStateChanged(user => {
+  if (user) {
+    // User is signed in
+    document.querySelector('.auth-box').style.display = 'none';
+    document.getElementById('app-container').style.display = 'block';
+    document.getElementById('user-name').textContent = user.email;
+    loadClips();
+  } else {
+    // User is signed out
+    document.querySelector('.auth-box').style.display = 'block';
+    document.getElementById('app-container').style.display = 'none';
+  }
+});
+
+// Cloudinary configuration
+const cloudinaryConfig = {
+  cloudName: "dj2v5reza", // Replace with your cloud name
+  uploadPreset: "gaming_clips" // Replace with your upload preset
+};
+
+// Initialize Cloudinary Widget
+const cloudinaryWidget = cloudinary.createUploadWidget(
+  {
+    cloudName: cloudinaryConfig.cloudName,
+    uploadPreset: cloudinaryConfig.uploadPreset,
+    sources: ['local', 'url', 'camera'],
+    multiple: false,
+    maxFileSize: 2000000000, // 2GB
+    resourceType: 'video'
+  },
+  (error, result) => {
+    if (!error && result && result.event === "success") {
+      // Upload completed successfully
+      const videoData = result.info;
+      saveClipToFirestore(videoData);
+    }
+    
+    if (error) {
+      console.error('Cloudinary upload error:', error);
+      alert('Error uploading clip: ' + error.message);
+    }
+  }
+);
+
+// Import Firestore collection functions
+import { collection, addDoc, getDocs, deleteDoc, orderBy, query } from "https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore.js";
+
+// Save clip data to Firestore
+async function saveClipToFirestore(videoData) {
+  try {
+    const user = auth.currentUser;
+    const timestamp = Date.now();
+    
+    // Save clip metadata to Firestore
+    await addDoc(collection(db, "clips"), {
+      title: videoData.original_filename || 'Untitled Clip',
+      videoUrl: videoData.secure_url,
+      publicId: videoData.public_id,
+      timestamp: timestamp,
+      uploaderId: user.uid,
+      uploaderEmail: user.email,
+      fileType: videoData.format,
+      duration: videoData.duration,
+      size: videoData.bytes
+    });
+    
+    alert('Clip uploaded successfully!');
+    
+    // Reload clips to show the new one
+    loadClips();
+    
+  } catch (error) {
+    console.error('Error saving clip data:', error);
+    alert('Error saving clip data: ' + error.message);
+  }
+}
+
+// Load clips from Firestore
+async function loadClips() {
+  try {
+    const clipsQuery = query(collection(db, "clips"), orderBy("timestamp", "desc"));
+    const snapshot = await getDocs(clipsQuery);
+    
+    if (snapshot.empty) {
+      document.getElementById('empty-state').style.display = 'flex';
+      return;
+    }
+    
+    document.getElementById('empty-state').style.display = 'none';
+    
+    // Clear existing clips except empty state
+    const clipGrid = document.getElementById('clip-grid');
+    Array.from(clipGrid.children).forEach(child => {
+      if (child.id !== 'empty-state') {
+        clipGrid.removeChild(child);
+      }
+    });
+    
+    // Add clips to grid
+    snapshot.forEach(doc => {
+      const clipData = doc.data();
+      const clipCard = createClipCard(clipData, doc.id);
+      clipGrid.appendChild(clipCard);
+    });
+    
+  } catch (error) {
+    console.error('Error loading clips:', error);
+    alert('Error loading clips: ' + error.message);
+  }
+}
+
+// Create a clip card element
+function createClipCard(clip, clipId) {
+  const card = document.createElement('div');
+  card.style.backgroundColor = '#2a3f5a';
+  card.style.borderRadius = '8px';
+  card.style.overflow = 'hidden';
+  card.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.2)';
+  
+  const video = document.createElement('video');
+  video.src = clip.videoUrl;
+  video.controls = true;
+  video.style.width = '100%';
+  video.style.backgroundColor = '#000';
+  video.style.aspectRatio = '16/9';
+  
+  const info = document.createElement('div');
+  info.style.padding = '12px';
+  
+  const title = document.createElement('div');
+  title.textContent = clip.title;
+  title.style.fontWeight = 'bold';
+  title.style.marginBottom = '6px';
+  title.style.color = '#66c0f4';
+  title.style.fontSize = '16px';
+  title.style.overflow = 'hidden';
+  title.style.textOverflow = 'ellipsis';
+  title.style.whiteSpace = 'nowrap';
+  
+  const meta = document.createElement('div');
+  meta.style.display = 'flex';
+  meta.style.justifyContent = 'space-between';
+  meta.style.color = '#8f98a0';
+  meta.style.fontSize = '12px';
+  
+  const date = document.createElement('span');
+  date.textContent = new Date(clip.timestamp).toLocaleDateString();
+  
+  const uploader = document.createElement('span');
+  uploader.textContent = `By: ${clip.uploaderEmail}`;
+  
+  const actions = document.createElement('div');
+  actions.style.display = 'flex';
+  actions.style.marginTop = '10px';
+  actions.style.gap = '8px';
+  
+  const downloadBtn = document.createElement('button');
+  downloadBtn.textContent = 'Download';
+  downloadBtn.style.flex = '1';
+  downloadBtn.style.padding = '6px';
+  downloadBtn.style.border = 'none';
+  downloadBtn.style.borderRadius = '4px';
+  downloadBtn.style.fontSize = '12px';
+  downloadBtn.style.fontWeight = 'bold';
+  downloadBtn.style.cursor = 'pointer';
+  downloadBtn.style.backgroundColor = '#5c7e10';
+  downloadBtn.style.color = 'white';
+  downloadBtn.addEventListener('click', () => {
+    window.open(clip.videoUrl, '_blank');
+  });
+  
+  actions.appendChild(downloadBtn);
+  
+  // Only show delete button if user owns this clip
+  if (clip.uploaderId === auth.currentUser.uid) {
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.style.flex = '1';
+    deleteBtn.style.padding = '6px';
+    deleteBtn.style.border = 'none';
+    deleteBtn.style.borderRadius = '4px';
+    deleteBtn.style.fontSize = '12px';
+    deleteBtn.style.fontWeight = 'bold';
+    deleteBtn.style.cursor = 'pointer';
+    deleteBtn.style.backgroundColor = '#c15c3e';
+    deleteBtn.style.color = 'white';
+    deleteBtn.addEventListener('click', () => deleteClip(clipId));
+    actions.appendChild(deleteBtn);
+  }
+  
+  meta.appendChild(date);
+  meta.appendChild(uploader);
+  
+  info.appendChild(title);
+  info.appendChild(meta);
+  info.appendChild(actions);
+  
+  card.appendChild(video);
+  card.appendChild(info);
+  
+  return card;
+}
+
+// Delete a clip
+async function deleteClip(clipId) {
+  if (confirm('Are you sure you want to delete this clip?')) {
+    try {
+      await deleteDoc(doc(db, "clips", clipId));
+      alert('Clip deleted successfully');
+      loadClips();
+    } catch (error) {
+      console.error('Error deleting clip:', error);
+      alert('Error deleting clip: ' + error.message);
+    }
+  }
+}
+
+// Event listeners for buttons
+document.getElementById('upload-btn').addEventListener('click', () => {
+  cloudinaryWidget.open();
+});
+
+document.getElementById('empty-upload-btn').addEventListener('click', () => {
+  cloudinaryWidget.open();
+});
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+  auth.signOut();
+});
     </script>
 </body>
 </html>
