@@ -1,6 +1,6 @@
 const config = {
   firebase: {
-    apiKey: "YOUR_API_KEY",
+    apiKey: "AIzaSyCLtNx0uF5dSd7hqLbdmU4XUyNdAYf7BSk",
     authDomain: "zenkai-share.firebaseapp.com",
     projectId: "zenkai-share",
     storageBucket: "zenkai-share.appspot.com",
