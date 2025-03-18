@@ -269,6 +269,13 @@ const cloudinaryWidget = cloudinary.createUploadWidget(
     if (!error && result && result.event === "success") {
       // Upload completed successfully
       const videoData = result.info;
+      
+      // Prompt user for custom title
+      const customTitle = prompt("Enter a title for your clip:", videoData.original_filename || "Untitled");
+      
+      // Use custom title if provided, otherwise use original filename
+      videoData.customTitle = customTitle || videoData.original_filename;
+      
       saveClipToFirestore(videoData);
     }
     
@@ -280,7 +287,7 @@ const cloudinaryWidget = cloudinary.createUploadWidget(
 );
 
 // Import Firestore collection functions
-import { collection, addDoc, getDocs, deleteDoc, orderBy, query } from "https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, deleteDoc, updateDoc, orderBy, query, doc } from "https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore.js";
 
 // Save clip data to Firestore
 async function saveClipToFirestore(videoData) {
@@ -290,7 +297,7 @@ async function saveClipToFirestore(videoData) {
     
     // Save clip metadata to Firestore
     await addDoc(collection(db, "clips"), {
-      title: videoData.original_filename || 'Untitled Clip',
+      title: videoData.customTitle || videoData.original_filename || 'Untitled Clip',
       videoUrl: videoData.secure_url,
       publicId: videoData.public_id,
       timestamp: timestamp,
@@ -411,6 +418,28 @@ function createClipCard(clip, clipId) {
   // Only show delete button if user owns this clip
   if (clip.uploaderId === auth.currentUser.uid) {
     const deleteBtn = document.createElement('button');
+    // Add this new code for the edit button BEFORE your delete button code:
+  const editBtn = document.createElement('button');
+  editBtn.textContent = 'Edit Title';
+  editBtn.style.flex = '1';
+  editBtn.style.padding = '6px';
+  editBtn.style.border = 'none';
+  editBtn.style.borderRadius = '4px';
+  editBtn.style.fontSize = '12px';
+  editBtn.style.fontWeight = 'bold';
+  editBtn.style.cursor = 'pointer';
+  editBtn.style.backgroundColor = '#4682B4'; // Steel blue
+  editBtn.style.color = 'white';
+  editBtn.style.marginRight = '8px'; // Add some spacing between buttons
+  
+  editBtn.addEventListener('click', () => {
+    const newTitle = prompt("Enter new title:", clip.title);
+    if (newTitle && newTitle.trim() !== '') {
+      updateClipTitle(clipId, newTitle.trim());
+    }
+  });
+  
+  actions.appendChild(editBtn);
     deleteBtn.textContent = 'Delete';
     deleteBtn.style.flex = '1';
     deleteBtn.style.padding = '6px';
@@ -464,6 +493,19 @@ document.getElementById('empty-upload-btn').addEventListener('click', () => {
 document.getElementById('logout-btn').addEventListener('click', () => {
   auth.signOut();
 });
+       // Add this new function to handle title updates
+async function updateClipTitle(clipId, newTitle) {
+  try {
+    await updateDoc(doc(db, "clips", clipId), {
+      title: newTitle
+    });
+    alert('Title updated!');
+    loadClips(); // Reload to show changes
+  } catch (error) {
+    console.error('Error updating title:', error);
+    alert('Error updating title: ' + error.message);
+  }
+}
     </script>
 </body>
 </html>
